@@ -1,0 +1,6 @@
+rootProject.name = "Tour-Guide"
+include 'TourGuideMain'
+include 'GpsUtil'
+include 'RewardsCentral'
+include 'TripPricer'
+
