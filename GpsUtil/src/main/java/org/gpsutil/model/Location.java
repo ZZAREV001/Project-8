@@ -1,4 +1,4 @@
-package org.gpsutil;
+package org.gpsutil.model;
 
 public class Location {
 

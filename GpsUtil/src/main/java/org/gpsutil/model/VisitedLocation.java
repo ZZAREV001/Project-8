@@ -1,4 +1,4 @@
-package org.gpsutil;
+package org.gpsutil.model;
 
 import java.util.Date;
 import java.util.UUID;
