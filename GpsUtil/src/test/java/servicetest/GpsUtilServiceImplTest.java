@@ -1,10 +1,14 @@
 package servicetest;
 
 import org.gpsutil.exceptions.GpsUtilException;
+import org.gpsutil.model.Attraction;
+import org.gpsutil.model.Location;
 import org.gpsutil.model.VisitedLocation;
 import org.gpsutil.service.GpsUtilServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -13,6 +17,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 public class GpsUtilServiceImplTest {
 
     private GpsUtilServiceImpl gpsUtilService = new GpsUtilServiceImpl();
+
+    @BeforeEach
+    public void setUp() {
+        gpsUtilService = new GpsUtilServiceImpl();
+    }
 
     @Test
     public void getUserLocation_ShouldReturnValidLocation() {
@@ -38,6 +47,52 @@ public class GpsUtilServiceImplTest {
         assertThatThrownBy(() -> gpsUtilService.getUserLocation("invalidUserId"))
                 .isInstanceOf(GpsUtilException.class)
                 .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    public void getAttractions_ShouldReturnListOfAttractions() {
+        // Act
+        List<Attraction> attractions = gpsUtilService.getAttractions();
+
+        // Assert
+        assertThat(attractions).isNotNull();
+        assertThat(attractions).hasSize(3);
+
+        // Asserting the properties of the first attraction
+        Attraction firstAttraction = attractions.get(0);
+        assertThat(firstAttraction.getName()).isEqualTo("Statue of Liberty");
+        assertThat(firstAttraction.getCity()).isEqualTo("New York City");
+        assertThat(firstAttraction.getState()).isEqualTo("NY");
+        assertThat(firstAttraction.getLocation().getLatitude()).isEqualTo(40.6892534);
+        assertThat(firstAttraction.getLocation().getLongitude()).isEqualTo(-74.0466891);
+    }
+
+    @Test
+    public void isWithinAttractionProximity_ShouldReturnTrueWhenWithinProximity() {
+        // Arrange
+        Attraction attraction = new Attraction("Test Attraction", "Test City", "Test State",
+                new Location(40.6892534, -74.0466891));
+        Location locationNearby = new Location(40.6892534, -74.0466891); // Same location as attraction
+
+        // Act
+        boolean isWithinProximity = gpsUtilService.isWithinAttractionProximity(attraction, locationNearby);
+
+        // Assert
+        assertThat(isWithinProximity).isTrue();
+    }
+
+    @Test
+    public void isWithinAttractionProximity_ShouldReturnFalseWhenOutsideProximity() {
+        // Arrange
+        Attraction attraction = new Attraction("Test Attraction", "Test City", "Test State",
+                new Location(40.6892534, -74.0466891));
+        Location locationFarAway = new Location(50.0, 0.0); // A location far away from the attraction
+
+        // Act
+        boolean isWithinProximity = gpsUtilService.isWithinAttractionProximity(attraction, locationFarAway);
+
+        // Assert
+        assertThat(isWithinProximity).isFalse();
     }
 }
 
