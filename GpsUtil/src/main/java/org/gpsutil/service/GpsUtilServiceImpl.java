@@ -1,5 +1,6 @@
 package org.gpsutil.service;
 
+import org.gpsutil.exceptions.GpsUtilException;
 import org.gpsutil.model.VisitedLocation;
 import org.gpsutil.model.Location;
 import org.gpsutil.model.Attraction;
@@ -18,37 +19,51 @@ public class GpsUtilServiceImpl implements GpsUtilService {
     private final int proximityBuffer = DEFAULT_PROXIMITY_BUFFER;
     private final int ATTRACTION_PROXIMITY_RANGE = 200;
 
-    // This method should get the user's location (in reality, we have to get user location and use a GPS API)
-    @Override
-    public VisitedLocation getUserLocation(String userId) {
-        // Generating random latitude and longitude for testing
-        double latitude = Math.random() * 180 - 90; // values between -90 and 90
-        double longitude = Math.random() * 360 - 180; // values between -180 and 180
-
-        // Creating a location object
-        Location location = new Location(latitude, longitude);
-
-        // Creating a visited location object with the current time
-        VisitedLocation visitedLocation = new VisitedLocation(UUID.fromString(userId), location, new Date());
-
-        return visitedLocation;
-    }
-
     // This method should get a list of all attractions
     @Override
+    public VisitedLocation getUserLocation(String userId) {
+        try {
+            // Generating random latitude and longitude for testing
+            double latitude = Math.random() * 180 - 90; // values between -90 and 90
+            double longitude = Math.random() * 360 - 180; // values between -180 and 180
+
+            // Creating a location object
+            Location location = new Location(latitude, longitude);
+
+            // Creating a visited location object with the current time
+            VisitedLocation visitedLocation = new VisitedLocation(UUID.fromString(userId), location, new Date());
+
+            return visitedLocation;
+        } catch (Exception ex) {
+            // debugging case (problem with the unit test)
+            System.out.println("Caught exception: " + ex);
+
+            // Check if the exception is of type IllegalArgumentException
+            if (ex instanceof IllegalArgumentException) {
+                System.out.println("The exception is an IllegalArgumentException");
+            } else {
+                System.out.println("The exception is NOT an IllegalArgumentException");
+            }
+
+            // Throw the GpsUtilException with the caught exception as the cause
+            throw new GpsUtilException("Error fetching user location for user id: " + userId, ex);
+        }
+    }
+
+    @Override
     public List<Attraction> getAttractions() {
-        List<Attraction> attractions = new ArrayList<>();
+            List<Attraction> attractions = new ArrayList<>();
 
-        // Adding some hardcoded attractions (real app: retrieve from a database or an external API)
-        attractions.add(new Attraction("Statue of Liberty", "New York City", "NY",
-                new Location(40.6892534, -74.0466891)));
-        attractions.add(new Attraction("Eiffel Tower", "Paris", "France",
-                new Location(48.8588443, 2.2943506)));
-        attractions.add(new Attraction("The Colosseum", "Rome", "Italy",
-                new Location(41.8902102, 12.4922309)));
+            // Adding some hardcoded attractions (real app: retrieve from a database or an external API)
+            attractions.add(new Attraction("Statue of Liberty", "New York City", "NY",
+                    new Location(40.6892534, -74.0466891)));
+            attractions.add(new Attraction("Eiffel Tower", "Paris", "France",
+                    new Location(48.8588443, 2.2943506)));
+            attractions.add(new Attraction("The Colosseum", "Rome", "Italy",
+                    new Location(41.8902102, 12.4922309)));
 
-        // Return the list of attractions
-        return attractions;
+            // Return the list of attractions
+            return attractions;
     }
 
     // This method should check if a location is near an attraction
