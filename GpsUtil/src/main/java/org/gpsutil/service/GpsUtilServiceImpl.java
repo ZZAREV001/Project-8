@@ -4,6 +4,8 @@ import org.gpsutil.exceptions.GpsUtilException;
 import org.gpsutil.model.VisitedLocation;
 import org.gpsutil.model.Location;
 import org.gpsutil.model.Attraction;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -18,6 +20,12 @@ public class GpsUtilServiceImpl implements GpsUtilService {
     private final int DEFAULT_PROXIMITY_BUFFER = 10;
     private final int proximityBuffer = DEFAULT_PROXIMITY_BUFFER;
     private final int ATTRACTION_PROXIMITY_RANGE = 200;
+    @Autowired
+    private KafkaTemplate<String, VisitedLocation> kafkaTemplate;
+
+    public void publishUserLocation(VisitedLocation visitedLocation) {
+        kafkaTemplate.send("user-location-updates", visitedLocation);
+    }
 
     // This method should get a list of all attractions
     @Override
