@@ -1,9 +1,7 @@
 package org.rewardscentral.service;
 
-import org.rewardscentral.model.Location;
-import org.rewardscentral.model.VisitedLocation;
-import org.rewardscentral.model.Attraction;
-import org.rewardscentral.model.Reward;
+import org.rewardscentral.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
@@ -18,7 +16,8 @@ public class RewardsCentralServiceImpl {
 
     private static final double STATUTE_MILES_PER_NAUTICAL_MILE = 1.15077945;
     private final int ATTRACTION_PROXIMITY_RANGE = 10; // in miles
-
+    @Autowired
+    private KafkaTemplate<String, UserReward> kafkaTemplate;
 
     // Assuming you have a method to check if a location is within proximity of an attraction
     // This method is triggered whenever a message is published to the "user-location-updates" topic
@@ -39,11 +38,16 @@ public class RewardsCentralServiceImpl {
 
                 // Add reward points to the total
                 totalRewardPoints += rewardPoints;
+
+                // Create a UserReward object
+                UserReward userReward = new UserReward(visitedLocation, attraction, rewardPoints);
+
+                // Publish the UserReward to Kafka topic for the UserService to consume
+                kafkaTemplate.send("user-rewards-updates", userReward);
             }
         }
-
-        // Here you can do something with totalRewardPoints, like updating the user's rewards
     }
+
     private int calculateRewardPointsForAttraction(Attraction attraction) {
         // Implementation to calculate reward points for an attraction
     }

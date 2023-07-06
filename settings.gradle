@@ -3,4 +3,5 @@ include 'TourGuideMain'
 include 'GpsUtil'
 include 'RewardsCentral'
 include 'TripPricer'
+include 'UserService'
 

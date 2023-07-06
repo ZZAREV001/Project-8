@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$/RewardsCentral" />
             <option value="$PROJECT_DIR$/TourGuideMain" />
             <option value="$PROJECT_DIR$/TripPricer" />
+            <option value="$PROJECT_DIR$/UserService" />
           </set>
         </option>
       </GradleProjectSettings>
