@@ -1,31 +1,42 @@
 package org.rewardscentral.service;
 
 import org.rewardscentral.model.*;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class RewardsCentralServiceImpl {
 
     private static final double STATUTE_MILES_PER_NAUTICAL_MILE = 1.15077945;
     private final int ATTRACTION_PROXIMITY_RANGE = 10; // in miles
-    @Autowired
-    private KafkaTemplate<String, UserReward> kafkaTemplate;
+    private final KafkaTemplate<String, UserReward> kafkaTemplate;
+    private List<Attraction> attractions;
+    private final KafkaTemplate<String, Attraction> kafkaTemplate1;
+    private final Map<UUID, List<VisitedLocation>> userVisitedLocations = new HashMap<>();
 
-    // Assuming you have a method to check if a location is within proximity of an attraction
+    public RewardsCentralServiceImpl(KafkaTemplate<String, UserReward> kafkaTemplate, KafkaTemplate<String, Attraction> kafkaTemplate1) {
+        this.kafkaTemplate = kafkaTemplate;
+        this.kafkaTemplate1 = kafkaTemplate1;
+    }
+
+    @KafkaListener(topics = "attractions-updates", groupId = "rewardscentral")
+    public void updateAttractions(List<Attraction> attractions) {
+        this.attractions = attractions;
+    }
+
+    @KafkaListener(topics = "attractions", groupId = "rewardscentral")
+    public void consumeAttractions(Attraction attraction) {
+        // Add the attraction to your local list of attractions
+        attractions.add(attraction);
+    }
+
+    // We have ever a method to check if a location is within proximity of an attraction
     // This method is triggered whenever a message is published to the "user-location-updates" topic
     @KafkaListener(topics = "user-location-updates", groupId = "rewardscentral")
-    public void calculateUserRewardPoints(VisitedLocation visitedLocation) {
-        // Get the list of all attractions
-        List<Attraction> attractions = getAttractions();
-
+    public void calculateRewardPointsForUser(UUID userId, List<VisitedLocation> visitedLocations) {
         // Initialize totalRewardPoints
         int totalRewardPoints = 0;
 
@@ -49,26 +60,85 @@ public class RewardsCentralServiceImpl {
     }
 
     private int calculateRewardPointsForAttraction(Attraction attraction) {
-        // Implementation to calculate reward points for an attraction
+        // Implementation to calculate reward points for an attraction.
+        // As no rules are specified, we simply generate a number between 1 and 100
+        Random random = new Random();
+        return random.nextInt(100) + 1;
     }
 
     private boolean isWithinAttractionProximity(Attraction attraction, Location location) {
-        // Implementation to check if a location is within proximity of an attraction
+        // Calculate the distance between the attraction and the location
+        double distance = getDistance(attraction.getLocation(), location);
+
+        // Return true if the distance is less than or equal to the proximity range
+        return distance <= ATTRACTION_PROXIMITY_RANGE;
     }
 
-    // Assuming you have a method to get the list of attractions
-    private List<Attraction> getAttractions() {
-        // Implementation to get the list of attractions
-        // This could be hardcoded, fetched from a database, or another service
+    private double getDistance(Location loc1, Location loc2) {
+        double lat1 = Math.toRadians(loc1.getLatitude());
+        double lon1 = Math.toRadians(loc1.getLongitude());
+        double lat2 = Math.toRadians(loc2.getLatitude());
+        double lon2 = Math.toRadians(loc2.getLongitude());
+
+        double angle = Math.acos(Math.sin(lat1) * Math.sin(lat2)
+                + Math.cos(lat1) * Math.cos(lat2) * Math.cos(lon1 - lon2));
+
+        double nauticalMiles = 60 * Math.toDegrees(angle);
+        return STATUTE_MILES_PER_NAUTICAL_MILE * nauticalMiles;
     }
+
     // Calculate rewards for a batch of users
     public Map<UUID, Integer> calculateRewardsForAllUsers(Map<UUID, List<VisitedLocation>> userVisitedLocations) {
-        // Implementation here...
+        Map<UUID, Integer> userRewardPoints = new HashMap<>();
+        for (Map.Entry<UUID, List<VisitedLocation>> entry : userVisitedLocations.entrySet()) {
+            UUID userId = entry.getKey();
+            List<VisitedLocation> visitedLocations = entry.getValue();
+            int totalRewardPoints = calculateRewardPointsForUser(userId, visitedLocations);
+            userRewardPoints.put(userId, totalRewardPoints);
+        }
+        return userRewardPoints;
     }
 
-    // Get the number of reward points that a user would earn for visiting a specific attraction
-    public int getAttractionRewardPoints(UUID attractionId) {
-        // Implementation here...
+    @KafkaListener(topics = "user-location-updates", groupId = "rewardscentral")
+    public int calculateUserRewardPoints(VisitedLocation visitedLocation) {
+        // Initialize totalRewardPoints
+        int totalRewardPoints = 0;
+
+        // Get the list of visited locations for the user
+        List<VisitedLocation> visitedLocations = getVisitedLocationsForUser(visitedLocation.getUserId());
+
+        // Iterate through each visited location
+        for (VisitedLocation userVisitedLocation : visitedLocations) { // renamed variable
+            // Iterate through each attraction
+            for (Attraction attraction : attractions) { // directly use the attractions field
+                // Check if the visited location is within proximity of the attraction
+                if (isWithinAttractionProximity(attraction, userVisitedLocation.getLocation())) { // use renamed variable
+                    // Calculate reward points for this attraction
+                    int rewardPoints = calculateRewardPointsForAttraction(attraction);
+
+                    // Add reward points to the total
+                    totalRewardPoints += rewardPoints;
+                }
+            }
+        }
+
+        return totalRewardPoints;
+    }
+
+    @KafkaListener(topics = "user-visited-locations", groupId = "rewardscentral")
+    public void consumeUserVisitedLocations(VisitedLocation visitedLocation) {
+        // Get the list of visited locations for the user
+        List<VisitedLocation> visitedLocations = userVisitedLocations.getOrDefault(visitedLocation.getUserId(), new ArrayList<>());
+
+        // Add the new visited location
+        visitedLocations.add(visitedLocation);
+
+        // Update the list of visited locations for the user
+        userVisitedLocations.put(visitedLocation.getUserId(), visitedLocations);
+    }
+
+    public List<VisitedLocation> getVisitedLocationsForUser(UUID userId) {
+        return userVisitedLocations.getOrDefault(userId, new ArrayList<>());
     }
 
     // Get a list of rewards that a user has earned

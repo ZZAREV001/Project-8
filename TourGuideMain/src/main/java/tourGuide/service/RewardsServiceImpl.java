@@ -110,8 +110,6 @@ public class RewardsServiceImpl implements RewardsService {
         log.info("Total rewards for user: {}", user.getUserRewards().size());
     }
 
-
-
     @Override
     public boolean isWithinAttractionProximity(Attraction attraction, Location location) {
         return getDistance(attraction, location) > ATTRACTION_PROXIMITY_RANGE ? false : true;

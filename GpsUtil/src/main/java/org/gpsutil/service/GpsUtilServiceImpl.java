@@ -21,7 +21,10 @@ public class GpsUtilServiceImpl implements GpsUtilService {
     private final int proximityBuffer = DEFAULT_PROXIMITY_BUFFER;
     private final int ATTRACTION_PROXIMITY_RANGE = 200;
     @Autowired
+    private KafkaTemplate<String, Attraction> kafkaTemplate1;
+    @Autowired
     private KafkaTemplate<String, VisitedLocation> kafkaTemplate;
+
 
     public void publishUserLocation(VisitedLocation visitedLocation) {
         kafkaTemplate.send("user-location-updates", visitedLocation);
@@ -93,6 +96,13 @@ public class GpsUtilServiceImpl implements GpsUtilService {
 
         double nauticalMiles = 60 * Math.toDegrees(angle);
         return STATUTE_MILES_PER_NAUTICAL_MILE * nauticalMiles;
+    }
+
+    public void publishAttractions() {
+        List<Attraction> attractions = getAttractions();
+        for (Attraction attraction : attractions) {
+            kafkaTemplate1.send("attractions", attraction);
+        }
     }
 
 }
