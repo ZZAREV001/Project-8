@@ -1,15 +1,27 @@
 package org.rewardscentral.model;
 
+import java.util.UUID;
+
 public class UserReward {
 
+    private UUID userId;
     private VisitedLocation visitedLocation;
     private Attraction attraction;
     private int rewardPoints;
 
-    public UserReward(VisitedLocation visitedLocation, Attraction attraction, int rewardPoints) {
+    public UserReward(UUID userId, VisitedLocation visitedLocation, Attraction attraction, int rewardPoints) {
+        this.userId = userId;
         this.visitedLocation = visitedLocation;
         this.attraction = attraction;
         this.rewardPoints = rewardPoints;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public void setUserId(UUID userId) {
+        this.userId = userId;
     }
 
     public VisitedLocation getVisitedLocation() {

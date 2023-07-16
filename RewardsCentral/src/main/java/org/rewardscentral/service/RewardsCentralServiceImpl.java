@@ -16,6 +16,7 @@ public class RewardsCentralServiceImpl {
     private List<Attraction> attractions;
     private final KafkaTemplate<String, Attraction> kafkaTemplate1;
     private final Map<UUID, List<VisitedLocation>> userVisitedLocations = new HashMap<>();
+    private final Map<UUID, List<UserReward>> userRewards = new HashMap<>();
 
     public RewardsCentralServiceImpl(KafkaTemplate<String, UserReward> kafkaTemplate, KafkaTemplate<String, Attraction> kafkaTemplate1) {
         this.kafkaTemplate = kafkaTemplate;
@@ -33,30 +34,40 @@ public class RewardsCentralServiceImpl {
         attractions.add(attraction);
     }
 
-    // We have ever a method to check if a location is within proximity of an attraction
-    // This method is triggered whenever a message is published to the "user-location-updates" topic
-    @KafkaListener(topics = "user-location-updates", groupId = "rewardscentral")
-    public void calculateRewardPointsForUser(UUID userId, List<VisitedLocation> visitedLocations) {
+    public int calculateRewardPointsForUser(UUID userId, List<VisitedLocation> visitedLocations) {
         // Initialize totalRewardPoints
         int totalRewardPoints = 0;
 
-        // Iterate through each attraction
-        for (Attraction attraction : attractions) {
-            // Check if the visited location is within proximity of the attraction
-            if (isWithinAttractionProximity(attraction, visitedLocation.getLocation())) {
-                // Calculate reward points for this attraction
-                int rewardPoints = calculateRewardPointsForAttraction(attraction);
+        // Iterate through each visited location
+        for (VisitedLocation visitedLocation : visitedLocations) {
+            // Iterate through each attraction
+            for (Attraction attraction : attractions) {
+                // Check if the visited location is within proximity of the attraction
+                if (isWithinAttractionProximity(attraction, visitedLocation.getLocation())) {
+                    // Calculate reward points for this attraction
+                    int rewardPoints = calculateRewardPointsForAttraction(attraction);
 
-                // Add reward points to the total
-                totalRewardPoints += rewardPoints;
-
-                // Create a UserReward object
-                UserReward userReward = new UserReward(visitedLocation, attraction, rewardPoints);
-
-                // Publish the UserReward to Kafka topic for the UserService to consume
-                kafkaTemplate.send("user-rewards-updates", userReward);
+                    // Add reward points to the total
+                    totalRewardPoints += rewardPoints;
+                }
             }
         }
+
+        return totalRewardPoints;
+    }
+
+    @KafkaListener(topics = "user-location-updates", groupId = "rewardscentral")
+    public void handleUserLocationUpdate(VisitedLocation visitedLocation) {
+        UUID userId = visitedLocation.getUserId();
+        List<VisitedLocation> visitedLocations = getVisitedLocationsForUser(userId);
+
+        int totalRewardPoints = calculateRewardPointsForUser(userId, visitedLocations);
+
+        // Create a UserReward object
+        UserReward userReward = new UserReward(userId, visitedLocation, null, totalRewardPoints);
+
+        // Publish the UserReward to Kafka topic for the UserService to consume
+        kafkaTemplate.send("user-rewards-updates", userReward);
     }
 
     private int calculateRewardPointsForAttraction(Attraction attraction) {
@@ -118,12 +129,19 @@ public class RewardsCentralServiceImpl {
 
                     // Add reward points to the total
                     totalRewardPoints += rewardPoints;
+
+                    // Create a UserReward object
+                    UserReward userReward = new UserReward(visitedLocation.getUserId(), visitedLocation, attraction, rewardPoints);
+
+                    // Publish the UserReward to Kafka topic for the UserService to consume
+                    kafkaTemplate.send("user-rewards-updates", userReward);
                 }
             }
         }
 
         return totalRewardPoints;
     }
+
 
     @KafkaListener(topics = "user-visited-locations", groupId = "rewardscentral")
     public void consumeUserVisitedLocations(VisitedLocation visitedLocation) {
@@ -141,8 +159,20 @@ public class RewardsCentralServiceImpl {
         return userVisitedLocations.getOrDefault(userId, new ArrayList<>());
     }
 
-    // Get a list of rewards that a user has earned
-    public List<Reward> getUserRewards(UUID userId) {
-        // Implementation here...
+    @KafkaListener(topics = "user-rewards-updates", groupId = "rewardscentral")
+    public void consumeUserRewards(UserReward userReward) {
+        // Get the list of rewards for the user
+        List<UserReward> rewards = userRewards.getOrDefault(userReward.getUserId(), new ArrayList<>());
+
+        // Add the new reward
+        rewards.add(userReward);
+
+        // Update the list of rewards for the user
+        userRewards.put(userReward.getUserId(), rewards);
     }
+
+    public List<UserReward> getUserRewards(UUID userId) {
+        return userRewards.getOrDefault(userId, new ArrayList<>());
+    }
+
 }
