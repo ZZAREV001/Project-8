@@ -1,3 +1,30 @@
 spring:
+  profiles:
+    active: local
+
+---
+
+spring:
+  profiles: local
+  kafka:
+    bootstrap-servers: localhost:9092
+
+---
+
+spring:
+  profiles: docker
   kafka:
     bootstrap-servers: host.docker.internal:9092
+
+---
+
+services:
+  rewardscentral:
+    build: .
+    depends_on:
+      - kafka
+    ports:
+      - 8080:8080
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+
